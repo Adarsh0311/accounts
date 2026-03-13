@@ -1,0 +1,16 @@
+# ?? application-mysql.properties ???????????????????????????????????????
+# Used when running inside Docker with MySQL container
+
+# 'mysql' here is the SERVICE NAME from docker-compose.yml
+# Docker's internal DNS resolves 'mysql' to the MySQL container's IP
+spring:
+    datasource:
+        url: jdbc:mysql://mysql:3306/accountsdb?createDatabaseIfNotExist=true
+        username: root
+        password: root
+        driver-class-name: com.mysql.cj.jdbc.Driver
+    jpa:
+        database-platform: org.hibernate.dialect.MySQLDialect
+        hibernate:
+            ddl-auto: update
+        show-sql: true

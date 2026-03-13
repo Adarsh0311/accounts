@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounts-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: accounts-ms
+  template:
+    metadata:
+      labels:
+        app: accounts-ms
+    spec:
+      containers:
+      - name: accounts
+        image: kadarsh03/accounts:v1
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: accounts-config
+        env:
+          - name: SPRING_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: MYSQL_ROOT_PASSWORD
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "300m"
+          limits:
+            memory: "700Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60 # 60 seconds to allow the application to start
+          periodSeconds: 10
+        readinessProbe:  # only send traffic when ready
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+# ── Accounts Service ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: accounts-service
+spec:
+  selector:
+    app: accounts-ms
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: LoadBalancer            # Expose to outside the cluster

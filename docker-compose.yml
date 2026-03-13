@@ -1,0 +1,67 @@
+services:
+  accounts:
+    image: "kadarsh03/accounts:v1"
+    container_name: accounts-ms
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    networks:
+      - kadarsh03-network
+  loans:
+    image: "kadarsh03/loans:s4"
+    container_name: loans-ms
+    ports:
+      - "8090:8090"
+    networks:
+      - kadarsh03-network
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+  cards:
+    image: "kadarsh03/cards:s4"
+    container_name: cards-ms
+    ports:
+      - "9000:9000"
+    networks:
+      - kadarsh03-network
+    deploy:
+      resources:
+        limits:
+          memory: 700m
+    # ── MySQL Database Container ──────────────────────────────────────────
+  mysql:
+    image: mysql:8.0                  # Pull official MySQL 8 from Docker Hub
+    container_name: accounts-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root  # Set root password
+      MYSQL_DATABASE: accountsdb         # Create a database named 'accountsdb'
+    ports:
+      - "3306:3306"              # Expose MySQL port
+    volumes:
+      - mysql-data:/var/lib/mysql  # Persist MySQL data
+    networks:
+      - kadarsh03-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+# Define the network
+networks:
+  kadarsh03-network:
+    driver: bridge
+
+# Named volume — data persists even when containers are deleted
+volumes:
+  mysql-data:
