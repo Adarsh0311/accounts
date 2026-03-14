@@ -76,25 +76,33 @@ jobs:
       if: github.ref == 'refs/heads/master' #only run this job on master branch
 
       steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-
-        # Set up kubectl
-        - name: Set up kubectl
-          uses: azure/setup-kubectl@v3
-
-        # Connect to Kubernetes cluster using kubeconfig stored in GitHub secrets
-        - name: Configure kubectl
+        - name: Deployment Info
           run: |
-            echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yml
-            export KUBECONFIG=kubeconfig.yml
+            echo "✅ Docker image pushed: ${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }}"
+            echo "ℹ️  In production this job would deploy to AWS EKS or GKE"
+            echo "ℹ️  Local minikube clusters are not accessible from CI/CD pipelines"
+            echo "ℹ️  Run locally: kubectl set image deployment/accounts-deployment accounts=${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }}"
 
-          # Update the Kubernetes deployment to use the new Docker image tagged with the current git commit SHA
-        - name: Deploy to Kubernetes
-          run: |
-            kubectl set image deployment/accounts-deployment \
-              accounts=${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }}
-            kubectl rollout status deployment/accounts-deployment
+#      steps:
+#        - name: Checkout code
+#          uses: actions/checkout@v4
+#
+#        # Set up kubectl
+#        - name: Set up kubectl
+#          uses: azure/setup-kubectl@v3
+#
+#        # Connect to Kubernetes cluster using kubeconfig stored in GitHub secrets
+#        - name: Configure kubectl
+#          run: |
+#            echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yml
+#            export KUBECONFIG=kubeconfig.yml
+#
+#          # Update the Kubernetes deployment to use the new Docker image tagged with the current git commit SHA
+#        - name: Deploy to Kubernetes
+#          run: |
+#            kubectl set image deployment/accounts-deployment \
+#              accounts=${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }}
+#            kubectl rollout status deployment/accounts-deployment
             
     
 
