@@ -1,0 +1,106 @@
+name: Accounts Microservice CI/CD Pipeline
+
+#Trigger - run this pipeline when
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  #Job 1 - Build and Test
+    build-and-test:
+      runs-on: ubuntu-latest
+      steps:
+        #Step 1 - Checkout code on the runner
+        - name: Checkout code
+          uses: actions/checkout@v2
+
+          #Step 2 - Set up JDK 17
+        - name: Set up JDK 17
+          uses: actions/setup-java@v4
+          with:
+              java-version: '17'
+              distribution: 'temurin'
+
+        #Step 3 - Cache maven dependencies
+        - name: Cache Maven dependencies
+          uses: actions/cache@v3
+          with:
+            path: ~/.m2
+            key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
+        #Step 4 - Build Jar
+        - name: Build with Maven
+          run: mvn clean package -DskipTests
+
+        #Step 5 - Run tests
+        - name: Run tests
+          run: mvn test
+
+    #Job 2 - Build and Push Docker Image
+    #only run this job if the build-and-test job is successful
+    docker-build-push:
+      needs: build-and-test #only run this job if the build-and-test job is successful
+      runs-on: ubuntu-latest
+      if: github.ref == 'refs/heads/master' #only run this job on master branch
+
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+
+        # Log in to Docker Hub using secrets stored in GitHub
+        - name: Log in to Docker Hub
+          uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.DOCKER_USERNAME }}
+            password: ${{ secrets.DOCKER_TOKEN }} # Use a Docker Hub access token stored in GitHub secrets for better security
+
+        # Build and push the Docker image to Docker Hub
+        # tagged with git commit SHA for traceability
+        - name: Build and push Docker image
+          uses: docker/build-push-action@v5
+          with:
+            context: .
+            push: true
+            tags: ${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }} #tag image with git commit SHA for traceability and use Docker Hub username from secrets
+
+    # Job 3 - Deploy to Kubernetes
+    # only run this job if the docker-build-push job is successful
+    deploy-to-kubernetes:
+      needs: docker-build-push #only run this job if the docker-build-push job is successful
+      runs-on: ubuntu-latest
+      if: github.ref == 'refs/heads/master' #only run this job on master branch
+
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        # Set up kubectl
+        - name: Set up kubectl
+          uses: azure/setup-kubectl@v3
+
+        # Connect to Kubernetes cluster using kubeconfig stored in GitHub secrets
+        - name: Configure kubectl
+          run: |
+            echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yml
+            export KUBECONFIG=kubeconfig.yml
+
+          # Update the Kubernetes deployment to use the new Docker image tagged with the current git commit SHA
+        - name: Deploy to Kubernetes
+          run: |
+            kubectl set image deployment/accounts-deployment \
+              accounts=${{ secrets.DOCKER_USERNAME }}/accounts:${{ github.sha }}
+            kubectl rollout status deployment/accounts-deployment
+            
+    
+
+    ### step 4 Add Githib Secrets
+    # Go to your GitHub repository > Settings > Secrets and add the following secrets:
+    # DOCKER_USERNAME: Your Docker Hub username
+    # DOCKER_PASSWORD: Your Docker Hub password
+    # KUBE_CONFIG: The contents of your kubeconfig file for accessing your Kubernetes cluster (you can get this from your cloud provider or by running `cat ~/.kube/config` if you have kubectl configured locally)
+    # Make sure to keep these secrets safe and do not share them publicly!
